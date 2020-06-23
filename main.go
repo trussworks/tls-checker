@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -56,8 +57,82 @@ func (e *errTLSCheck) Error() string {
 	return fmt.Sprintf("invalid request to url %s connected using %s", e.URL, tlsName)
 }
 
+// version is the published version of the utility
+var version string
+
+const (
+	// SchemesFlag is the Schemes Flag
+	SchemesFlag string = "schemes"
+	// HostsFlag is the Hosts Flag
+	HostsFlag string = "hosts"
+	// PathsFlag is the Paths Flag
+	PathsFlag string = "paths"
+	// KeyFlag is the Key Flag
+	KeyFlag string = "key"
+	// KeyFileFlag is the Key File Flag
+	KeyFileFlag string = "key-file"
+	// CertFlag is the Cert Flag
+	CertFlag string = "cert"
+	// CertFileFlag is the Cert File Flag
+	CertFileFlag string = "cert-file"
+	// CAFlag is the CA Flag
+	CAFlag string = "ca"
+	// CAFileFlag is the CA File Flag
+	CAFileFlag string = "ca-file"
+	// SkipVerifyFlag is the Skip Verify Flag
+	SkipVerifyFlag string = "skip-verify"
+	// TriesFlag is the Tries Flag
+	TriesFlag string = "tries"
+	// BackoffFlag is the Backoff Flag
+	BackoffFlag string = "backoff"
+	// TimeoutFlag is the Timeout Flag
+	TimeoutFlag string = "timeout"
+	// ExitOnErrorFlag is the ExitOnError Flag
+	ExitOnErrorFlag string = "exit-on-error"
+	// LogEnvFlag is the LogEnv Flag
+	LogEnvFlag string = "log-env"
+	// LogLevelFlag is the LogLevel Flag
+	LogLevelFlag string = "log-level"
+	// VerboseFlag is the Verbose Flag
+	VerboseFlag string = "verbose"
+)
+
+func initFlags(flag *pflag.FlagSet) {
+
+	// TLS URLs
+	flag.StringP(SchemesFlag, "s", "http,https", "slice of schemes to check")
+	flag.String(HostsFlag, "", "comma-separated list of host names to check")
+	flag.StringP(PathsFlag, "p", "/tls", "slice of paths to check on each host")
+
+	// Mutual TLS
+	flag.String(KeyFlag, "", "path to file of base64-encoded private key for client TLS")
+	flag.String(KeyFileFlag, "", "path to file of base64-encoded private key for client TLS")
+	flag.String(CertFlag, "", "base64-encoded public key for client TLS")
+	flag.String(CertFileFlag, "", "path to file of base64-encoded public key for client TLS")
+	flag.String(CAFlag, "", "base64-encoded certificate authority for mutual TLS")
+	flag.String(CAFileFlag, "", "path to file of base64-encoded certificate authority for mutual TLS")
+	flag.Bool(SkipVerifyFlag, false, "skip certifiate validation")
+
+	// Retry
+	flag.Int(TriesFlag, 5, "number of tries")
+	flag.Int(BackoffFlag, 1, "backoff in seconds")
+	flag.Duration(TimeoutFlag, 5*time.Minute, "timeout duration")
+
+	// Exit
+	flag.Bool(ExitOnErrorFlag, false, "exit on first tls check error")
+
+	// Logging
+	flag.String(LogEnvFlag, "development", "logging config: development or production")
+	flag.String(LogLevelFlag, "error", "log level: debug, info, warn, error, dpanic, panic, or fatal")
+
+	// Verbose
+	flag.BoolP(VerboseFlag, "v", false, "log messages at the debug level.")
+
+	flag.SortFlags = false
+}
+
 func checkConfig(v *viper.Viper) error {
-	schemesString := strings.TrimSpace(v.GetString("schemes"))
+	schemesString := strings.TrimSpace(v.GetString(SchemesFlag))
 
 	if len(schemesString) == 0 {
 		return errors.New("missing schemes")
@@ -71,13 +146,13 @@ func checkConfig(v *viper.Viper) error {
 		}
 	}
 
-	hosts := v.GetString("hosts")
+	hosts := v.GetString(HostsFlag)
 
 	if len(hosts) == 0 {
 		return errors.New("missing hosts")
 	}
 
-	pathsString := v.GetString("paths")
+	pathsString := v.GetString(PathsFlag)
 
 	if len(pathsString) == 0 {
 		return errors.New("missing paths")
@@ -91,10 +166,10 @@ func checkConfig(v *viper.Viper) error {
 		}
 	}
 
-	clientKeyEncoded := v.GetString("key")
-	clientCertEncoded := v.GetString("cert")
-	clientKeyFile := v.GetString("key-file")
-	clientCertFile := v.GetString("cert-file")
+	clientKeyEncoded := v.GetString(KeyFlag)
+	clientCertEncoded := v.GetString(CertFlag)
+	clientKeyFile := v.GetString(KeyFileFlag)
+	clientCertFile := v.GetString(CertFileFlag)
 
 	if len(clientKeyEncoded) > 0 || len(clientCertEncoded) > 0 || len(clientKeyFile) > 0 || len(clientCertFile) > 0 {
 		if schemes.Contains("http") {
@@ -131,12 +206,12 @@ func createTLSConfig(clientKey []byte, clientCert []byte, ca []byte, insecureSki
 
 func createHTTPClient(v *viper.Viper, logger *zap.Logger, tlsVersion uint16) (*http.Client, error) {
 
-	verbose := v.GetBool("verbose")
+	verbose := v.GetBool(VerboseFlag)
 
-	clientKeyEncoded := v.GetString("key")
-	clientCertEncoded := v.GetString("cert")
-	skipVerify := v.GetBool("skip-verify")
-	timeout := v.GetDuration("timeout")
+	clientKeyEncoded := v.GetString(KeyFlag)
+	clientCertEncoded := v.GetString(CertFlag)
+	skipVerify := v.GetBool(SkipVerifyFlag)
+	timeout := v.GetDuration(TimeoutFlag)
 
 	if verbose {
 		if skipVerify {
@@ -163,7 +238,7 @@ func createHTTPClient(v *viper.Viper, logger *zap.Logger, tlsVersion uint16) (*h
 		}
 
 		caBytes := make([]byte, 0)
-		if caEncoded := v.GetString("ca"); len(caEncoded) > 0 {
+		if caEncoded := v.GetString(CAFlag); len(caEncoded) > 0 {
 			caString, err := base64.StdEncoding.DecodeString(caEncoded)
 			if err != nil {
 				return nil, errors.Wrap(err, "error decoding certificate authority")
@@ -179,8 +254,8 @@ func createHTTPClient(v *viper.Viper, logger *zap.Logger, tlsVersion uint16) (*h
 
 	} else {
 
-		clientKeyFile := v.GetString("key-file")
-		clientCertFile := v.GetString("cert-file")
+		clientKeyFile := v.GetString(KeyFlag)
+		clientCertFile := v.GetString(KeyFileFlag)
 
 		if len(clientKeyFile) > 0 && len(clientCertFile) > 0 {
 
@@ -195,7 +270,7 @@ func createHTTPClient(v *viper.Viper, logger *zap.Logger, tlsVersion uint16) (*h
 			}
 
 			caBytes := make([]byte, 0)
-			if caFile := v.GetString("ca-file"); len(caFile) > 0 {
+			if caFile := v.GetString(CAFlag); len(caFile) > 0 {
 				content, err := ioutil.ReadFile(caFile) // #nosec b/c we need to read a file from a user-defined path
 				if err != nil {
 					return nil, errors.Wrap(err, "error reading ca file at "+caFile)
@@ -264,33 +339,73 @@ func getTLSName(tlsVersion uint16) string {
 
 func main() {
 
-	flag := pflag.CommandLine
-
-	flag.StringP("schemes", "s", "https", "slice of schemes to check")
-	flag.String("hosts", "", "comma-separated list of host names to check")
-	flag.StringP("paths", "p", "/health", "slice of paths to check on each host")
-	flag.String("key", "", "path to file of base64-encoded private key for client TLS")
-	flag.String("key-file", "", "path to file of base64-encoded private key for client TLS")
-	flag.String("cert", "", "base64-encoded public key for client TLS")
-	flag.String("cert-file", "", "path to file of base64-encoded public key for client TLS")
-	flag.String("ca", "", "base64-encoded certificate authority for mutual TLS")
-	flag.String("ca-file", "", "path to file of base64-encoded certificate authority for mutual TLS")
-	flag.Bool("skip-verify", false, "skip certifiate validation")
-	flag.Duration("timeout", 5*time.Minute, "timeout duration")
-	flag.Bool("exit-on-error", false, "exit on first tls check error")
-	flag.String("log-env", "development", "logging config: development or production")
-	flag.String("log-level", "error", "log level: debug, info, warn, error, dpanic, panic, or fatal")
-	flag.Bool("verbose", false, "output extra information")
-
-	errFlagParse := flag.Parse(os.Args[1:])
-	if errFlagParse != nil {
-		log.Fatal(errFlagParse.Error())
+	root := cobra.Command{
+		Use:   "tls-checker [flags]",
+		Short: "Website TLS Check",
+		Long:  "Website TLS Check",
 	}
 
+	completionCommand := &cobra.Command{
+		Use:   "completion",
+		Short: "Generates bash completion scripts",
+		Long:  "To install completion scripts run:\ntls-checker completion > /usr/local/etc/bash_completion.d/find-guardduty-user",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return root.GenBashCompletion(os.Stdout)
+		},
+	}
+	root.AddCommand(completionCommand)
+
+	tlsCheckerCheckCommand := &cobra.Command{
+		Use:                   "check [flags]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Website TLS Check",
+		Long:                  "Website TLS Check",
+		RunE:                  tlsCheckerCheckFunction,
+	}
+	initFlags(tlsCheckerCheckCommand.Flags())
+	root.AddCommand(tlsCheckerCheckCommand)
+
+	tlsCheckerVersionCommand := &cobra.Command{
+		Use:                   "version",
+		DisableFlagsInUseLine: true,
+		Short:                 "Print the version",
+		Long:                  "Print the version",
+		RunE:                  tlsCheckerVersionFunction,
+	}
+	root.AddCommand(tlsCheckerVersionCommand)
+
+	if err := root.Execute(); err != nil {
+		panic(err)
+	}
+}
+
+func tlsCheckerVersionFunction(cmd *cobra.Command, args []string) error {
+	if len(version) == 0 {
+		fmt.Println("development")
+		return nil
+	}
+	fmt.Println(version)
+	return nil
+}
+
+func tlsCheckerCheckFunction(cmd *cobra.Command, args []string) error {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println(r)
+		}
+	}()
+
+	err := cmd.ParseFlags(args)
+	if err != nil {
+		return err
+	}
+
+	flag := cmd.Flags()
+
 	v := viper.New()
-	errBindFlags := v.BindPFlags(flag)
-	if errBindFlags != nil {
-		log.Fatal(errBindFlags.Error())
+	bindErr := v.BindPFlags(flag)
+	if bindErr != nil {
+		return bindErr
 	}
 	v.SetEnvPrefix("TLSCHECKER")
 	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
@@ -303,7 +418,7 @@ func main() {
 		}
 	}()
 
-	logger, err := createLogger(v.GetString("log-env"), v.GetString("log-level"))
+	logger, err := createLogger(v.GetString(LogEnvFlag), v.GetString(LogLevelFlag))
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -323,10 +438,10 @@ func main() {
 		logger.Fatal(err.Error())
 	}
 
-	verbose := v.GetBool("verbose")
-	schemes := strings.Split(strings.TrimSpace(v.GetString("schemes")), ",")
-	hosts := strings.Split(strings.TrimSpace(v.GetString("hosts")), ",")
-	paths := strings.Split(strings.TrimSpace(v.GetString("paths")), ",")
+	verbose := v.GetBool(VerboseFlag)
+	schemes := strings.Split(strings.TrimSpace(v.GetString(SchemesFlag)), ",")
+	hosts := strings.Split(strings.TrimSpace(v.GetString(HostsFlag)), ",")
+	paths := strings.Split(strings.TrimSpace(v.GetString(PathsFlag)), ",")
 
 	// TLS Versions that should not work
 	var invalidTLSVersions = []uint16{
@@ -346,7 +461,7 @@ func main() {
 			logger.Fatal(errors.Wrap(err, "error creating http client").Error())
 		}
 
-		exitOnError := v.GetBool("exit-on-error")
+		exitOnError := v.GetBool(ExitOnErrorFlag)
 
 		for _, scheme := range schemes {
 			for _, host := range hosts {
@@ -368,4 +483,5 @@ func main() {
 			}
 		}
 	}
+	return nil
 }
