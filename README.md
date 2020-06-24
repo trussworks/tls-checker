@@ -42,3 +42,20 @@ export KEY=$(echo $tls_key -q | base64 -i -)
 export CERT=$(echo $tls_cert -q | base64 -i -)
 export CA=$(echo $ca_cert -q | base64 -i -)
 ```
+
+## Testing
+
+To test after making changes, uncomment the following lines in `main.go`:
+
+```Golang
+// tls.VersionTLS12,
+// tls.VersionTLS13,
+```
+
+And then run
+
+```Golang
+go run . check --schemes https --hosts "www.truss.works" --log-level info --timeout 15m
+```
+
+You should see invalid requests. These failures prove exits on the bad TLS versions that are accepted, and indicates the tool is working as expected.
