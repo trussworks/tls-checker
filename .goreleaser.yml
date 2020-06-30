@@ -1,0 +1,45 @@
+env:
+  - GO111MODULE=on
+before:
+  hooks:
+    - go mod download
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+    main: main.go
+brews:
+  - description: "tls-checker is used to verify that websites are serving on accepted TLS versions and not downgrading."
+    github:
+      owner: trussworks
+      name: homebrew-tap
+    homepage: "https://github.com/trussworks/tls-checker"
+    commit_author:
+      name: trussworks-infra
+      email: infra+github@truss.works
+dockers:
+  - binaries:
+      - tls-checker
+    image_templates:
+      - "trussworks/tls-checker:{{ .Tag }}"
+    skip_push: true
+archives:
+  - replacements:
+      darwin: Darwin
+      linux: Linux
+      amd64: x86_64
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+snapshot:
+  name_template: "{{ .Tag }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
