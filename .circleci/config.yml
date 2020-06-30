@@ -31,10 +31,10 @@ jobs:
           command: docker login -u $DOCKER_USER -p $DOCKER_PASS
       - run:
           name: Test that Docker container works
-          command: docker run -it trussworks/health-checker:<< pipeline.git.tag >> help
+          command: docker run -it trussworks/tls-checker:<< pipeline.git.tag >> help
       - run:
           name: Docker push
-          command: docker push trussworks/health-checker:<< pipeline.git.tag >>
+          command: docker push trussworks/tls-checker:<< pipeline.git.tag >>
 workflows:
   version: 2.1
   validate:
