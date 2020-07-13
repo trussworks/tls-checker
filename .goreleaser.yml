@@ -14,7 +14,7 @@ builds:
     main: main.go
 brews:
   - description: "tls-checker is used to verify that websites are serving on accepted TLS versions and not downgrading."
-    github:
+    tap:
       owner: trussworks
       name: homebrew-tap
     homepage: "https://github.com/trussworks/tls-checker"
