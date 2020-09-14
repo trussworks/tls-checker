@@ -22,6 +22,7 @@ jobs:
   release:
     docker:
       - image: *circleci
+    steps:
       - checkout
       - setup_remote_docker
       - run: goreleaser
