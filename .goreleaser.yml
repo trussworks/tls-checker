@@ -22,7 +22,7 @@ brews:
       name: trussworks-infra
       email: infra+github@truss.works
 dockers:
-  - binaries:
+  - ids:
       - tls-checker
     image_templates:
       - "trussworks/tls-checker:{{ .Tag }}"
