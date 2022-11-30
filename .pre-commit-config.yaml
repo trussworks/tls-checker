@@ -31,8 +31,6 @@ repos:
         additional_dependencies:
           - mdformat-gfm
           - mdformat-toc
-        # mdformat fights with terraform_docs
-        exclude: README.m(ark)?d(own)?
 
   - repo: https://github.com/detailyang/pre-commit-shell
     rev: 1.0.5
